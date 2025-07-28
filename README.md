@@ -18,7 +18,13 @@ docker exec -it vaultwarden /vaultwarden backup
 Backup to 'data/db_20250609_085940.sqlite3' was successful
 ```
 
-2. Скопируйте файлы в хранилище бекапов:
+2. Перейдите в директорию
+
+```
+cd /docker/traefik/vaultwarden
+```
+
+3. Скопируйте файлы в хранилище бекапов:
 
 ```
 attachments\
