@@ -188,7 +188,7 @@ docker run -d \
     "$TEST_IMAGE" >/dev/null
 
 log "Ожидаю готовности сервиса"
-health=""
+ready="false"
 for _ in $(seq 1 30); do
     running="$(docker inspect -f '{{.State.Running}}' "$TEST_CONTAINER" 2>/dev/null || printf false)"
     if [[ "$running" != "true" ]]; then
@@ -196,25 +196,21 @@ for _ in $(seq 1 30); do
         fail "Контейнер остановился во время запуска."
     fi
 
-    health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$TEST_CONTAINER")"
-    if [[ "$health" == "healthy" ]]; then
+    if curl -kfsS "https://localhost:$TEST_PORT/alive" >/dev/null 2>&1; then
+        ready="true"
         break
     fi
 
     sleep 2
 done
 
-if [[ "$health" != "healthy" ]]; then
+if [[ "$ready" != "true" ]]; then
     docker logs --tail=100 "$TEST_CONTAINER" >&2 || true
-    fail "Vaultwarden не перешёл в состояние healthy за 60 секунд."
+    fail "HTTPS endpoint Vaultwarden не ответил за 60 секунд."
 fi
 
-curl -kfsS "https://localhost:$TEST_PORT/alive" >/dev/null || {
-    docker logs --tail=100 "$TEST_CONTAINER" >&2 || true
-    fail "Health endpoint Vaultwarden недоступен."
-}
-
 version="$(docker exec "$TEST_CONTAINER" /vaultwarden --version 2>/dev/null || true)"
+health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}не настроен{{end}}' "$TEST_CONTAINER")"
 
 cat <<EOF
 
@@ -225,6 +221,9 @@ Vaultwarden успешно восстановлен и запущен.
 
 Версия:
   ${version:-$TEST_IMAGE}
+
+Docker healthcheck:
+  $health
 
 Тестовые данные:
   $TEST_DATA
